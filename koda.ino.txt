@@ -1,0 +1,164 @@
+// C++ code
+#define reset 15
+#define start_stop 16
+
+const byte vhod_n = 2;                 // stev vhodov
+bool vhodSt_0[] = {0, 0};              // predhodno stanje vhoda
+bool vhodSt_x[] = {1, 1};              // trenutno stanje vhoda
+bool vhodReg[] = {1, 1};               // zabelezeno stanje tipke
+bool deluje = false;                   // stanje števca (deluje/ne deluje)
+
+const byte dp = 9;
+
+byte t_delay = 10;
+unsigned long tx_cas;
+unsigned long t0_cas;
+unsigned long tt_cas;
+byte sec = 0;
+byte min = 0;
+// segmenti       a b c d e f g
+
+byte n[11][7] = {
+    {1, 1, 1, 1, 1, 1, 0}, // 0
+    {0, 1, 1, 0, 0, 0, 0}, // 1
+    {1, 1, 0, 1, 1, 0, 1}, // 2
+    {1, 1, 1, 1, 0, 0, 1}, // 3
+    {0, 1, 1, 0, 0, 1, 1}, // 4
+    {1, 0, 1, 1, 0, 1, 1}, // 5
+    {1, 0, 1, 1, 1, 1, 1}, // 6
+    {1, 1, 1, 0, 0, 0, 0}, // 7
+    {1, 1, 1, 1, 1, 1, 1}, // 8
+    {1, 1, 1, 1, 0, 1, 1}, // 9
+    {0, 0, 0, 0, 0, 0, 0}  // ugasne
+};
+
+int x[4] = {10, 11, 12, 13};
+int reset_stanje = 0;
+void setup()
+{
+    for (byte pin = 2; pin <= 13; pin++)
+        pinMode(pin, OUTPUT);
+    pinMode(reset, INPUT_PULLUP);
+    pinMode(start_stop, INPUT_PULLUP);
+    digitalWrite(dp, 0); // ?
+    Serial.begin(9600);
+    delay(200);
+    digitalWrite(reset, LOW); // ?
+    vhodSt_x[0] = reset
+}
+
+void stevec();
+void loop()
+{
+    tx_cas = millis();
+    reset_stanje = digitalRead(reset);
+
+    stevec();
+    prikaz();
+}
+
+void stevec()
+{
+
+    if (reset_stanje == HIGH)
+    {
+
+        sec = 0;
+        min = 0;
+    }
+
+    if (tx_cas - t0_cas >= 1000)
+    {
+        t0_cas = tx_cas;
+        sec++;
+    }
+
+    if (sec == 60)
+    {
+        sec = 0;
+        min++;
+    }
+
+    if (min == 100)
+    {
+        min = 0;
+    }
+}
+
+void stevka(byte cif)
+{
+    for (byte i = 0; i < 7; i++)
+    {
+        digitalWrite(i + 2, n[cif][i]);
+    }
+    digitalWrite(dp, 0);
+}
+
+void mux(byte m)
+{
+    byte modul[][4] = {{1, 0, 0, 0}, {0, 1, 0, 0}, {0, 0, 1, 0}, {0, 0, 0, 1}, {0, 0, 0, 0}};
+    if (m == 2)
+    {
+        digitalWrite(dp, 1);
+    }
+    else
+    {
+        digitalWrite(dp, 0);
+    }
+    for (byte i = 0; i < 4; i++)
+    {
+        digitalWrite(10 + i, modul[m][i]);
+        delay(2);
+    }
+}
+
+void prikaz()
+{
+
+    byte sec1 = sec % 10;
+    byte sec10 = (sec / 10);
+    byte min1 = min % 10;
+    byte min10 = (min / 10);
+    stevka(10);
+    mux(4);
+    stevka(sec1);
+    mux(0);
+    stevka(10);
+    mux(4);
+    if (sec10 != 0)
+    {
+        stevka(sec10);
+        mux(1);
+        stevka(10);
+        mux(4);
+    }
+    else
+    {
+        stevka(10);
+        mux(4);
+    }
+    if (min1 != 0)
+    {
+        stevka(min1);
+        mux(2);
+        stevka(10);
+        mux(4);
+    }
+    else
+    {
+        stevka(10);
+        mux(4);
+    }
+    if (min1 != 0)
+    {
+        stevka(min10);
+        mux(3);
+        stevka(10);
+        mux(4);
+    }
+    else
+    {
+        stevka(10);
+        mux(4);
+    }
+}
