@@ -1,4 +1,4 @@
 {
-    "sketch": "moja.ino",
+    "sketch": "stopwatch.ino",
     "board": "arduino:avr:uno"
 }
