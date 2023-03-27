@@ -16,7 +16,7 @@ bool DISPLAY_INSTRUCTIONS[11][7] = {
 };
 
 /// @brief Multiplexer configuration.
-bool LED_INSTRUCTIONS[5][4] = {
+bool TRANSISTOR_INSTRUCTIONS[5][4] = {
     {1, 0, 0, 0},
     {0, 1, 0, 0},
     {0, 0, 1, 0},
@@ -26,7 +26,7 @@ bool LED_INSTRUCTIONS[5][4] = {
 
 uint8_t decimal_point_pin = 9;
 
-/// @brief True if the stowatch is running
+/// @brief True if the stopwatch is running
 bool KEEPING_TIME = false;
 
 /// @brief Append passed milliseconds every loop if the stopwatch is not running. This is then subtracted from the displayed time.
@@ -160,7 +160,7 @@ void mux(uint8_t digit_position)
     // adjust the multiplexer transistors
     for (uint8_t i = 0; i < 4; i++)
     {
-        digitalWrite(i + 10, LED_INSTRUCTIONS[digit_position][i]);
+        digitalWrite(i + 10, TRANSISTOR_INSTRUCTIONS[digit_position][i]);
     }
 
     delay(1);

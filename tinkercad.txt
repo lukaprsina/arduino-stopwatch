@@ -50,9 +50,9 @@ public:
 class StopwatchTime
 {
 public:
-    /// @brief Converts from miliseconds to minutes and seconds.
-    /// @param miliseconds Current time - stopped time.
-    void update(unsigned long miliseconds);
+    /// @brief Converts from milliseconds to minutes and seconds.
+    /// @param milliseconds Current time - stopped time.
+    void update(unsigned long milliseconds);
 
     uint8_t minutes;
     uint8_t seconds;
@@ -95,7 +95,7 @@ void mux(uint8_t digit_position);
 
 uint8_t decimal_point_pin = 9;
 
-/// @brief True if the stowatch is running
+/// @brief True if the stopwatch is running
 bool KEEPING_TIME = false;
 
 /// @brief Append passed milliseconds every loop if the stopwatch is not running. This is then subtracted from the displayed time.
@@ -254,9 +254,9 @@ void loop()
     display_stopwatch_time(DISPLAY_TIME);
 }
 
-void StopwatchTime::update(unsigned long miliseconds)
+void StopwatchTime::update(unsigned long milliseconds)
 {
-    this->seconds = miliseconds / 1000;
+    this->seconds = milliseconds / 1000;
     this->minutes = this->seconds / 60;
 }
 
