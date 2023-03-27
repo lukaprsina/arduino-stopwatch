@@ -1,0 +1,272 @@
+#define DEBOUNCE_TIME 100
+
+template <class T>
+class PreviousState
+{
+public:
+    PreviousState(T current, T previous);
+
+            void new_value(T value);
+
+        T difference();
+
+    T previous;
+    T current;
+};
+
+class Toggle
+{
+public:
+    Toggle();
+
+        void update();
+
+    bool is_pressed();
+    bool is_released();
+
+        bool (*get_state)();
+        void (*on_press)();
+        void (*on_release)();
+
+        PreviousState<bool> value;
+
+        unsigned long last_press_time;
+};
+
+class StopwatchTime
+{
+public:
+            void update(unsigned long miliseconds);
+
+    uint8_t minutes;
+    uint8_t seconds;
+};
+
+class InputOutputState
+{
+public:
+    InputOutputState();
+
+        void update();
+
+        Toggle reset;
+
+        Toggle start_stop;
+
+        enum Pin
+    {
+        Reset = A4,
+        StartStop = A5,
+    };
+};
+
+void display_stopwatch_time(StopwatchTime &time);
+
+void display_digit(uint8_t digit);
+
+void mux(uint8_t digit_position);
+
+bool DISPLAY_INSTRUCTIONS[11][7] = {
+    {1, 1, 1, 1, 1, 1, 0},
+    {0, 1, 1, 0, 0, 0, 0},
+    {1, 1, 0, 1, 1, 0, 1},
+    {1, 1, 1, 1, 0, 0, 1},
+    {0, 1, 1, 0, 0, 1, 1},
+    {1, 0, 1, 1, 0, 1, 1},
+    {1, 0, 1, 1, 1, 1, 1},
+    {1, 1, 1, 0, 0, 0, 0},
+    {1, 1, 1, 1, 1, 1, 1},
+    {1, 1, 1, 1, 0, 1, 1},
+    {0, 0, 0, 0, 0, 0, 0},
+};
+
+bool LED_INSTRUCTIONS[5][4] = {
+    {1, 0, 0, 0},
+    {0, 1, 0, 0},
+    {0, 0, 1, 0},
+    {0, 0, 0, 1},
+    {0, 0, 0, 0},
+};
+
+uint8_t decimal_point_pin = 9;
+
+bool KEEPING_TIME = false;
+
+unsigned long TIME_STOPPED = 0;
+
+PreviousState<unsigned int> TIME_DELTA((unsigned int)millis(), (unsigned int)0);
+StopwatchTime DISPLAY_TIME;
+InputOutputState STATE;
+
+Toggle::Toggle()
+    : value(false, false), last_press_time(0)
+{
+}
+
+void Toggle::update()
+{
+    if (this->get_state)
+    {
+                bool state = this->get_state();
+        this->value.new_value(state);
+    }
+
+    if (this->is_pressed())
+    {
+                if (this->on_press)
+            this->on_press();
+
+                this->last_press_time = TIME_DELTA.current;
+    }
+
+    if (this->is_released())
+    {
+                if (this->on_release)
+            this->on_release();
+    }
+}
+
+bool Toggle::is_pressed()
+{
+            unsigned long debounce_timer = abs((long long)this->last_press_time - (long long)TIME_DELTA.current);
+
+        if (debounce_timer < DEBOUNCE_TIME)
+        return false;
+
+    return this->value.current && !this->value.previous;
+}
+
+bool Toggle::is_released()
+{
+    unsigned long debounce_timer = abs((long long)this->last_press_time - (long long)TIME_DELTA.current);
+
+    if (debounce_timer < DEBOUNCE_TIME)
+        return false;
+
+    return !this->value.current && this->value.previous;
+}
+
+template <typename T>
+PreviousState<T>::PreviousState(T current, T previous)
+{
+    this->current = current;
+    this->previous = previous;
+}
+
+template <typename T>
+void PreviousState<T>::new_value(T value)
+{
+    this->previous = this->current;
+    this->current = value;
+}
+
+template <typename T>
+T PreviousState<T>::difference()
+{
+    return this->current - this->previous;
+}
+
+void on_reset_press()
+{
+        KEEPING_TIME = false;
+
+        TIME_STOPPED = TIME_DELTA.current;
+}
+
+void on_start_stop_press()
+{
+        KEEPING_TIME = !KEEPING_TIME;
+}
+
+void setup()
+{
+    Serial.begin(9600);
+
+        for (uint8_t pin = 2; pin <= 13; pin++)
+        pinMode(pin, OUTPUT);
+
+        pinMode(InputOutputState::Pin::Reset, INPUT_PULLUP);
+    pinMode(InputOutputState::Pin::StartStop, INPUT_PULLUP);
+
+        STATE.reset.on_press = &on_reset_press;
+    STATE.start_stop.on_press = &on_start_stop_press;
+}
+
+void loop()
+{
+        TIME_DELTA.new_value(millis());
+
+        if (!KEEPING_TIME)
+        TIME_STOPPED += TIME_DELTA.difference();
+
+        STATE.update();
+
+        DISPLAY_TIME.update(TIME_DELTA.current - TIME_STOPPED);
+    display_stopwatch_time(DISPLAY_TIME);
+}
+
+void StopwatchTime::update(unsigned long miliseconds)
+{
+    this->seconds = miliseconds     this->minutes = this->seconds }
+
+bool get_reset_value()
+{
+    return digitalRead(InputOutputState::Pin::Reset);
+}
+
+bool get_start_stop_value()
+{
+    return digitalRead(InputOutputState::Pin::StartStop);
+}
+
+InputOutputState::InputOutputState()
+{
+        this->reset.get_state = &get_reset_value;
+    this->start_stop.get_state = &get_start_stop_value;
+}
+
+void InputOutputState::update()
+{
+        this->reset.update();
+    this->start_stop.update();
+}
+
+void display_stopwatch_time(StopwatchTime &time)
+{
+        uint8_t digits[4] = {time.seconds % 10, time.seconds     for (uint8_t i = 0; i < 4; i++)
+    {
+                display_digit(10);
+                mux(4);
+
+                display_digit(digits[i]);
+        mux(i);
+    }
+
+    display_digit(10);
+    mux(4);
+}
+
+void display_digit(uint8_t digit)
+{
+    for (uint8_t i = 0; i < 7; i++)
+    {
+                digitalWrite(i + 2, DISPLAY_INSTRUCTIONS[digit][i]);
+
+                digitalWrite(decimal_point_pin, 0);
+    }
+}
+
+void mux(uint8_t digit_position)
+{
+        if (digit_position == 2)
+        digitalWrite(decimal_point_pin, 1);
+    else
+        digitalWrite(decimal_point_pin, 0);
+
+        for (uint8_t i = 0; i < 4; i++)
+    {
+        digitalWrite(i + 10, LED_INSTRUCTIONS[digit_position][i]);
+    }
+
+    delay(1);
+}
