@@ -1,58 +1,79 @@
+// Number of milliseconds to ignore button input if a button bounces (2 is enough).
 #define DEBOUNCE_TIME 100
 
+/// @brief Keep the current and previous value of T.
+/// @tparam T The type of current and previous value.
 template <class T>
 class PreviousState
 {
 public:
     PreviousState(T current, T previous);
 
+    /// @brief Set previous to current and current to value.
+    /// @param value New value.
     void new_value(T value);
 
+    /// @brief Calculate the difference between current and previous.
     T difference();
 
     T previous;
     T current;
 };
 
+/// @brief Calls callbacks when the value gets toggled (rising edge and falling edge).
 class Toggle
 {
 public:
     Toggle();
 
+    /// @brief Call every loop. Triggers callbacks.
     void update();
 
     bool is_pressed();
     bool is_released();
 
+    /// @brief Tell the toggle the state (example: if the pin is HIGH return true and false if LOW).
     bool (*get_state)();
+    /// @brief Gets called on rising edge (with debouncing)
     void (*on_press)();
+    /// @brief Gets called on falling edge (with debouncing)
     void (*on_release)();
 
+    /// @brief Keep a previous state of the value to check if it is toggled.
     PreviousState<bool> value;
 
+    /// @brief Keep time of last press for debouncing the value.
     unsigned long last_press_time;
 };
 
+/// @brief Stores the stopwatch time.
 class StopwatchTime
 {
 public:
+    /// @brief Converts from miliseconds to minutes and seconds.
+    /// @param miliseconds Current time - stopped time.
     void update(unsigned long miliseconds);
 
     uint8_t minutes;
     uint8_t seconds;
 };
 
+/// @brief Represents stopwatch IO.
 class InputOutputState
 {
 public:
     InputOutputState();
 
+    /// @brief Call every loop to communicate with IO.
     void update();
 
+    /// @brief Reset time and stop counting when on rising edge.
     Toggle reset;
 
+    /// @brief If stopped, continue counting and vice versa on rising edge.
     Toggle start_stop;
 
+    /// @brief IO pins.
     enum Pin
     {
         Reset = A4,
@@ -60,40 +81,27 @@ public:
     };
 };
 
+/// @brief Call once a loop to update the stopwatch display.
+/// @param time The time to show.
 void display_stopwatch_time(StopwatchTime &time);
 
+/// @brief Display a digit on the 7-segment display. Keep in mind that the position is determined by the mux calls.
+/// @param digit The number to display.
 void display_digit(uint8_t digit);
 
+/// @brief Turn on the right transistors to display the digit at a correct place.
+/// @param digit_position Which of the four possible digit positions.
 void mux(uint8_t digit_position);
-
-bool DISPLAY_INSTRUCTIONS[11][7] = {
-    {1, 1, 1, 1, 1, 1, 0},
-    {0, 1, 1, 0, 0, 0, 0},
-    {1, 1, 0, 1, 1, 0, 1},
-    {1, 1, 1, 1, 0, 0, 1},
-    {0, 1, 1, 0, 0, 1, 1},
-    {1, 0, 1, 1, 0, 1, 1},
-    {1, 0, 1, 1, 1, 1, 1},
-    {1, 1, 1, 0, 0, 0, 0},
-    {1, 1, 1, 1, 1, 1, 1},
-    {1, 1, 1, 1, 0, 1, 1},
-    {0, 0, 0, 0, 0, 0, 0},
-};
-
-bool LED_INSTRUCTIONS[5][4] = {
-    {1, 0, 0, 0},
-    {0, 1, 0, 0},
-    {0, 0, 1, 0},
-    {0, 0, 0, 1},
-    {0, 0, 0, 0},
-};
 
 uint8_t decimal_point_pin = 9;
 
+/// @brief True if the stowatch is running
 bool KEEPING_TIME = false;
 
+/// @brief Append passed milliseconds every loop if the stopwatch is not running. This is then subtracted from the displayed time.
 unsigned long TIME_STOPPED = 0;
 
+/// @brief Keep the previous value of milliseconds to get the delta time.
 PreviousState<unsigned int> TIME_DELTA((unsigned int)millis(), (unsigned int)0);
 StopwatchTime DISPLAY_TIME;
 InputOutputState STATE;
@@ -107,20 +115,24 @@ void Toggle::update()
 {
     if (this->get_state)
     {
+        // update the state to check if it is toggled
         bool state = this->get_state();
         this->value.new_value(state);
     }
 
     if (this->is_pressed())
     {
+        // call the rising edge callback
         if (this->on_press)
             this->on_press();
 
+        // set the last press time for debounce check
         this->last_press_time = TIME_DELTA.current;
     }
 
     if (this->is_released())
     {
+        // call the falling edge callback
         if (this->on_release)
             this->on_release();
     }
@@ -128,8 +140,11 @@ void Toggle::update()
 
 bool Toggle::is_pressed()
 {
+    // time since last press
+    // absolute value because of negative value when initializing
     unsigned long debounce_timer = abs((long long)this->last_press_time - (long long)TIME_DELTA.current);
 
+    // ignore press if too soon
     if (debounce_timer < DEBOUNCE_TIME)
         return false;
 
@@ -166,15 +181,42 @@ T PreviousState<T>::difference()
     return this->current - this->previous;
 }
 
+/// @brief Number segments for 7-segment display plus a clear screen digit.
+bool DISPLAY_INSTRUCTIONS[11][7] = {
+    {1, 1, 1, 1, 1, 1, 0},
+    {0, 1, 1, 0, 0, 0, 0},
+    {1, 1, 0, 1, 1, 0, 1},
+    {1, 1, 1, 1, 0, 0, 1},
+    {0, 1, 1, 0, 0, 1, 1},
+    {1, 0, 1, 1, 0, 1, 1},
+    {1, 0, 1, 1, 1, 1, 1},
+    {1, 1, 1, 0, 0, 0, 0},
+    {1, 1, 1, 1, 1, 1, 1},
+    {1, 1, 1, 1, 0, 1, 1},
+    {0, 0, 0, 0, 0, 0, 0},
+};
+
+/// @brief Multiplexer configuration.
+bool LED_INSTRUCTIONS[5][4] = {
+    {1, 0, 0, 0},
+    {0, 1, 0, 0},
+    {0, 0, 1, 0},
+    {0, 0, 0, 1},
+    {0, 0, 0, 0},
+};
+
 void on_reset_press()
 {
+    // stop the stopwatch
     KEEPING_TIME = false;
 
+    // display t=0
     TIME_STOPPED = TIME_DELTA.current;
 }
 
 void on_start_stop_press()
 {
+    // toggle the stopwatch
     KEEPING_TIME = !KEEPING_TIME;
 }
 
@@ -182,25 +224,32 @@ void setup()
 {
     Serial.begin(9600);
 
+    // initialize 7-segment display pin to OUTPUT
     for (uint8_t pin = 2; pin <= 13; pin++)
         pinMode(pin, OUTPUT);
 
+    // the reset and start/stop buttons are pullup buttons
     pinMode(InputOutputState::Pin::Reset, INPUT_PULLUP);
     pinMode(InputOutputState::Pin::StartStop, INPUT_PULLUP);
 
+    // set callbacks for button toggles
     STATE.reset.on_press = &on_reset_press;
     STATE.start_stop.on_press = &on_start_stop_press;
 }
 
 void loop()
 {
+    // store the current and previous time to get the time since the last loop
     TIME_DELTA.new_value(millis());
 
+    // TIME_STOPPED is subtracted from the current time to get the display time
     if (!KEEPING_TIME)
         TIME_STOPPED += TIME_DELTA.difference();
 
+    // update the IO state
     STATE.update();
 
+    // set the display time by subtracting TIME_STOPPED from the current time
     DISPLAY_TIME.update(TIME_DELTA.current - TIME_STOPPED);
     display_stopwatch_time(DISPLAY_TIME);
 }
@@ -223,25 +272,31 @@ bool get_start_stop_value()
 
 InputOutputState::InputOutputState()
 {
+    // set callbacks for reading the reset and start stop toggle buttons
     this->reset.get_state = &get_reset_value;
     this->start_stop.get_state = &get_start_stop_value;
 }
 
 void InputOutputState::update()
 {
+    // call callbacks of buttons
     this->reset.update();
     this->start_stop.update();
 }
 
 void display_stopwatch_time(StopwatchTime &time)
 {
+    // two digits for minutes and two digits for seconds
     uint8_t digits[4] = {time.seconds % 10, time.seconds / 10, time.minutes % 10, time.minutes / 10};
 
     for (uint8_t i = 0; i < 4; i++)
     {
+        // empty digit
         display_digit(10);
+        // no transistors
         mux(4);
 
+        // display the digit "digits[i]" in the i-th place
         display_digit(digits[i]);
         mux(i);
     }
@@ -254,19 +309,23 @@ void display_digit(uint8_t digit)
 {
     for (uint8_t i = 0; i < 7; i++)
     {
+        // turn the i-th segment on or off
         digitalWrite(i + 2, DISPLAY_INSTRUCTIONS[digit][i]);
 
+        // hide the decimal point
         digitalWrite(decimal_point_pin, 0);
     }
 }
 
 void mux(uint8_t digit_position)
 {
+    // set the separating decimal point between hours and minutes
     if (digit_position == 2)
         digitalWrite(decimal_point_pin, 1);
     else
         digitalWrite(decimal_point_pin, 0);
 
+    // adjust the multiplexer transistors
     for (uint8_t i = 0; i < 4; i++)
     {
         digitalWrite(i + 10, LED_INSTRUCTIONS[digit_position][i]);
